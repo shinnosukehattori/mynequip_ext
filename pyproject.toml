@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mynequip_ext"
+dynamic = ["version"]
+description = "Extention for NequIP, open-source code for building E(3)-equivariant interatomic potentials."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Shinnosuke Hattori"},
+]
+dependencies = [
+    "nequip",
+]
+
+[project.urls]
+Repository = "https://github.com/shinnosukehattori/mynequip_ext.git"
+
+#[project.scripts]
+#nequip-train = "nequip.scripts.train:main"
+
+[tool.setuptools]
+packages = {find = {include = ["mynequip_ext", "mynequip_ext.*"]}}
+zip-safe = true
+
+#[tool.setuptools.dynamic]  # get version from nequip/_version.py
+#version = {attr = "nequip._version.__version__"}
+
+[tool.flake8]
+max-line-length = 127
+select = ["E", "F", "W", "C"]
+ignore = ["E226", "E501", "E741", "E743", "C901", "W503", "E203"]
+exclude = [
+    ".eggs",
+    "*.egg",
+    "build",
+    "dist",
+    "docs",
+    ".git",
+    "__pycache__",
+    "examples",
+    "tmp"
+]
