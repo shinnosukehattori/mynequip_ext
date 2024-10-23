@@ -1,0 +1,245 @@
+run: [train, test]
+
+cutoff_radius: 5.2
+chemical_symbols: [H, Li, B, C, N, O, F, Na, Mg, Al, Si, P, S, Cl, K, Ca, Br, I] 
+#chemical_symbols: [H, He, Li, Be, B, C, N, O, F, Ne, Na, Mg, Al, Si, P, S, Cl, Ar, K, Ca, Sc, Ti, V, Cr, Mn, Fe, Co, Ni, Cu, Zn, Ga, Ge, As, Se, Br, Kr, Rb, Sr, Y, Zr, Nb, Mo, Tc, Ru, Rh, Pd, Ag, Cd, In, Sn, Sb, Te, I, Xe, Cs, Ba, La, Hf, Ta, W, Re, Os, Ir, Pt, Au, Hg, Tl, Pb, Bi, Po, At, Rn, Fr, Ra, Ac] 
+model_type_names: ${chemical_symbols}
+
+data:
+  _target_: mynequip_ext.data.datamodule.DumpedASEDataModule
+  train_file_path: train.pt
+  val_file_path: valid.pt
+  test_file_path: test.pt
+  transforms:
+    - _target_: nequip.data.transforms.NeighborListTransform
+      r_max: ${cutoff_radius}
+    - _target_: nequip.data.transforms.ChemicalSpeciesToAtomTypeMapper
+      chemical_symbols: ${chemical_symbols}
+  seed: 123
+  train_dataloader_kwargs:
+    batch_size: 128
+    num_workers: 2
+    shuffle: true
+  val_dataloader_kwargs:
+    batch_size: 512
+    num_workers: ${data.train_dataloader_kwargs.num_workers}
+  test_dataloader_kwargs: ${data.val_dataloader_kwargs}
+  stats_manager:
+    _target_: nequip.data.DataStatisticsManager
+    metrics:
+      - field:
+          _target_: nequip.data.NumNeighbors
+        metric: 
+          _target_: nequip.data.Mean
+        name: num_neighbors_mean
+      - field:
+          _target_: nequip.data.PerAtomModifier
+          field: total_energy
+        metric:
+          _target_: nequip.data.Mean
+        name: per_atom_energy_mean
+      - field: forces
+        metric:
+          _target_: nequip.data.RootMeanSquare
+        per_type: true
+        name: per_type_forces_rms
+      - field: forces
+        metric:
+          _target_: nequip.data.RootMeanSquare
+        name: forces_rms
+      
+trainer:
+  _target_: lightning.Trainer
+
+  devices: 0,1,2,3,4,5,6,7
+  num_nodes: 1
+  strategy: ddp
+
+  accelerator: gpu
+  enable_checkpointing: true
+  max_epochs: 1500
+  #max_time: 03:00:00:00
+  check_val_every_n_epoch: 1
+  log_every_n_steps: 50
+
+  logger:
+    _target_: lightning.pytorch.loggers.wandb.WandbLogger
+    project: allegro_dev
+    name: spice113
+    save_dir: ${hydra:runtime.output_dir}
+
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.EarlyStopping
+      monitor: val0_epoch/weighted_sum
+      min_delta: 1e-3                        
+      patience: 150                           
+
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      monitor: val0_epoch/weighted_sum
+      dirpath: ${hydra:runtime.output_dir}   
+      filename: best                         
+      save_last: true                        
+      
+    - _target_: lightning.pytorch.callbacks.LearningRateMonitor
+      logging_interval: epoch
+
+    - _target_: nequip.train.callbacks.NeMoExponentialMovingAverage
+      decay: 0.99
+      every_n_steps: 1
+
+    # SoftAdapt scheme (https://arxiv.org/abs/2403.18122) to adaptively change loss coefficients
+    #- _target_: nequip.train.callbacks.SoftAdapt
+    #  beta: 1.1         # controls strength of SoftAdapt loss coefficient updates
+    #  interval: epoch   # update on "epoch" or "batch" basis
+    #  frequency: 5      # number of intervals (epoch or batches) between SoftAdapt loss coefficient updates
+
+    - _target_: nequip.train.callbacks.LossCoefficientMonitor
+      interval: epoch
+      frequency: 1
+
+    - _target_: nequip.train.callbacks.TestTimeXYZFileWriter
+      out_file: ${hydra:runtime.output_dir}/test
+      output_fields_from_original_dataset: [total_energy, forces]
+      chemical_symbols: ${chemical_symbols}
+
+  
+training_module:
+  _target_: nequip.train.NequIPLightningModule
+  loss:
+    _target_: nequip.train.MetricsManager
+    metrics:
+      - name: peratomE_MSE
+        field:
+          _target_: nequip.data.PerAtomModifier
+          field: total_energy
+        coeff: 0.01
+        metric:
+          _target_: nequip.train.MeanSquaredError
+      - name: force_MSE
+        field: forces
+        coeff: 1
+        metric:
+          _target_: nequip.train.MeanSquaredError
+  train_metrics:
+    _target_: nequip.train.MetricsManager
+    metrics:
+      - name: tE_RMSE
+        field: total_energy
+        coeff: 0
+        metric:
+          _target_: nequip.train.RootMeanSquaredError
+      - name: peratomE_RMSE
+        field:
+          _target_: nequip.data.PerAtomModifier
+          field: total_energy
+        coeff: 1
+        metric:
+          _target_: nequip.train.RootMeanSquaredError
+      - name: avgF_RMSE
+        field: forces
+        coeff: 1
+        metric:
+          _target_: nequip.train.RootMeanSquaredError
+      - name: F_RMSE
+        per_type: true
+        field: forces
+        coeff: 0
+        metric:
+          _target_: nequip.train.RootMeanSquaredError
+  val_metrics: 
+    _target_: nequip.train.MetricsManager
+    metrics:
+      - name: peratomE_RMSE
+        field:
+          _target_: nequip.data.PerAtomModifier
+          field: total_energy
+        coeff: 1
+        metric:
+          _target_: nequip.train.RootMeanSquaredError
+      - name: avgF_RMSE
+        field: forces
+        coeff: 1
+        metric:
+          _target_: nequip.train.RootMeanSquaredError
+  test_metrics: ${training_module.train_metrics}
+
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.001
+    amsgrad: false
+
+  lr_scheduler:
+    scheduler:
+      _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+      factor: 0.5
+      patience: 50
+      min_lr: 1e-5
+    monitor: val0_epoch/weighted_sum
+    interval: epoch
+    frequency: 1
+
+  model:
+    # -- network --
+    model_builders:
+     - allegro.model.Allegro
+     - nequip.model.PerTypeEnergyScaleShift
+     - nequip.model.PairPotentialTerm
+     - nequip.model.StressForceOutput
+    
+    # bookkeeping
+    seed: 123
+    type_names: ${model_type_names}
+    model_dtype: float32
+    #default_dtype: float64
+ 
+    # cutoffs
+    r_max: ${cutoff_radius}
+ 
+    # radial basis
+    BesselBasis_trainable: true
+    PolynomialCutoff_p: 8   
+    num_bessels_per_basis: 8
+ 
+    # symmetry
+    l_max: 2
+    parity: o3_full   
+    
+    # Allegro layers:
+    num_layers: 2
+    num_tensor_features: 64
+    
+    two_body_latent_mlp_latent_dimensions: [64, 128, 256]
+    two_body_latent_mlp_nonlinearity: silu
+    two_body_latent_mlp_initialization: uniform
+    
+    latent_mlp_latent_dimensions: [256, 256, 256]
+    latent_mlp_nonlinearity: silu
+    latent_mlp_initialization: uniform
+    latent_resnet: true
+    
+    env_embed_mlp_latent_dimensions: []
+    env_embed_mlp_nonlinearity: null
+    env_embed_mlp_initialization: uniform
+    
+    # - end allegro layers -
+    
+    # Final MLP to go from Allegro latent space to edge energies:
+    edge_eng_mlp_latent_dimensions: [256]
+    edge_eng_mlp_nonlinearity: null
+    edge_eng_mlp_initialization: uniform
+    
+    # variables derived from dataset statistics
+    per_type_energy_scale_shift_shifts: ${training_data_stats:per_atom_energy_mean}
+    per_type_energy_scale_shift_scales: ${training_data_stats:per_type_forces_rms}
+    avg_num_neighbors: ${training_data_stats:num_neighbors_mean}
+ 
+ 
+    pair_style: ZBL
+    units: metal
+    ZBL_chemical_species: ${chemical_symbols}
+  
+# global options
+global_options:
+  seed: 123456
+  allow_tf32: true
+
