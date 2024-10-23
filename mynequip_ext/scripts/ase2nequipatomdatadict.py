@@ -4,7 +4,7 @@ import ase
 import ase.io
 
 from nequip.data.AtomicDataDict import from_dict
-from nequip.data import from_ase_to_dict
+from mynequip_ext.data import from_ase_to_dict
 
 from typing import Union, Dict, List, Optional, Callable, Any
 
@@ -44,8 +44,8 @@ if __name__ == "__main__":
                 #["SPICE-1.1.3_train.xyz", "train.pt"],
                 #["SPICE-1.1.3_test.xyz", "test.pt"],
                 #["SPICE-1.1.3_valid.xyz", "valid.pt"],
-                ["SPICE-2.0.1_train.xyz", "train.pt"],
                 ["SPICE-2.0.1_test.xyz", "test.pt"],
+                ["SPICE-2.0.1_train.xyz", "train.pt"],
                 ["SPICE-2.0.1_valid.xyz", "valid.pt"],
             ]
 
@@ -55,14 +55,17 @@ if __name__ == "__main__":
             atoms_list = ase.io.read(filename=target, index=":", parallel=False)
             print(atoms_list)
             key_mapping = {}
+            key_mapping = {
+                "energy_formation": "total_energy",
+            }
             #key_mapping = {
             #    "positions": "positions",
             #    "numbers": "atom_type",
             #    "cell": "cell",
             #    "pbc": "pbc",
             #}
-            include_keys = ["energy"]
-            exclude_keys = ["charges"]
+            include_keys = ["energy_formation"]
+            exclude_keys = ["energy", "charge"]
 
             data_list = parallel_read_and_process(
                 atoms_list=atoms_list,
@@ -74,12 +77,14 @@ if __name__ == "__main__":
     
             # Create the dataset
             torch.save(data_list, dumped)
+        print(data_list[0])
+        print(data_list[-1])
     else:
         import time
 
         dumped = targets[0][1]
         t0 = time.time()
-        dataset = torch.load(dumped)
+        dataset = torch.load(dumped, weights_only=True)
         print(dataset[0])
         print(dataset[-1])
         print("Time to load the dataset:", time.time() - t0)
