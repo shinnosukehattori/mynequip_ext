@@ -4,7 +4,7 @@ from omegaconf import ListConfig, DictConfig, OmegaConf
 from typing import Union, List, Callable, Optional, Dict
 
 
-class DumpedASEDataModule(NequIPDataModule):
+class MmapDataModule(NequIPDataModule):
     """LightningDataModule for `Dumped ASE <https://wiki.fysik.dtu.dk/ase/ase/io/io.html>`.
 
     Interface similar to ``nequip.data.datamodule.NequIPDataModule``, except that all the datasets are given in terms of paths to relevant ASE-readable files.
@@ -68,7 +68,7 @@ class DumpedASEDataModule(NequIPDataModule):
 
         # == assemble config template ==
         dataset_config_template = {
-            "_target_": "mynequip_ext.data.dataset.DumpedASEDataset",
+            "_target_": "mynequip_ext.data.dataset.MmapDataset",
             "transforms": transforms,
         }
 

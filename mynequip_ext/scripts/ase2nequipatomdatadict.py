@@ -1,12 +1,16 @@
-
+import numpy as np
+import time
 import torch
 import ase
 import ase.io
 
-from nequip.data.AtomicDataDict import from_dict
 from mynequip_ext.data import from_ase_to_dict
 
 from typing import Union, Dict, List, Optional, Callable, Any
+from ase.units import Bohr, Hartree, Angstrom, eV
+
+Hartree2eV = Hartree/eV
+maxforce = 0.25 * Hartree2eV
 
 
 def process_atoms(args):
@@ -31,59 +35,55 @@ def parallel_read_and_process(atoms_list, key_mapping, include_keys, exclude_key
             pbar.update()
             pbar.refresh()
             data_list.extend([results])
-    print("converting from AtomDataDict to Torch", str(ncpu))
-    data_list = [from_dict(x) for x in tqdm(data_list)]
     print("DONE!")
     return data_list
 
-    
+
 if __name__ == "__main__":
-    #do_convert = False
-    do_convert = True
     targets = [
                 #["SPICE-1.1.3_train.xyz", "train.pt"],
                 #["SPICE-1.1.3_test.xyz", "test.pt"],
                 #["SPICE-1.1.3_valid.xyz", "valid.pt"],
-                ["SPICE-2.0.1_valid.xyz", "valid.pt"],
-                ["SPICE-2.0.1_train.xyz", "train.pt"],
-                ["SPICE-2.0.1_test.xyz", "test.pt"],
+                #["SPICE-2.0.1_valid.xyz", "valid.pt"],
+                #["SPICE-2.0.1_train.xyz", "train.pt"],
+                #["SPICE-2.0.1_test.xyz", "test.pt"],
+                ["train_1.xyz", "dataset.pt"],
             ]
 
-    if do_convert:
-        for (target, dumped) in targets:
-            # Load the atoms from the ASE trajectory
-            atoms_list = ase.io.read(filename=target, index=":", parallel=False)
-            key_mapping = {}
-            key_mapping = {
-                "energy_formation": "total_energy",
-            }
-            #key_mapping = {
-            #    "positions": "positions",
-            #    "numbers": "atom_type",
-            #    "cell": "cell",
-            #    "pbc": "pbc",
-            #}
-            include_keys = ["energy_formation"]
-            exclude_keys = ["energy", "charge"]
+    for (target, dumped) in targets:
+        # Load the atoms from the ASE trajectory
+        atoms_list = ase.io.iread(filename=target, index=":", parallel=False)
+        atoms_list = [ ase_data for ase_data in atoms_list if np.abs(ase_data.calc.results["forces"]).max() < maxforce]
+        key_mapping = {}
+        key_mapping = {
+            "energy_formation": "total_energy",
+            #"cell": "cell",
+            #"energy": "total_energy",
+            #"positions": "pos",
+            #"numbers": "atom_type",
+            #"cell": "cell",
+            #"pbc": "pbc",
+        }
+        #include_keys = ["energy_formation"]
+        include_keys = []
+        exclude_keys = ["charges"]
 
-            data_list = parallel_read_and_process(
-                atoms_list=atoms_list,
-                key_mapping=key_mapping,
-                include_keys=include_keys,
-                exclude_keys=exclude_keys,
-                ncpu=24,
-            )
-    
-            # Create the dataset
-            torch.save(data_list, dumped)
-        print(data_list[0])
-        print(data_list[-1])
-    else:
-        import time
+        data_list = parallel_read_and_process(
+            atoms_list=atoms_list,
+            key_mapping=key_mapping,
+            include_keys=include_keys,
+            exclude_keys=exclude_keys,
+            ncpu=24,
+        )
 
-        dumped = targets[0][1]
+        # Create the dataset
+        torch.save(data_list, dumped)
+        print("Saved dataset to", dumped, "with", len(data_list), "entries", "from", target)
+        print("keys:", data_list[0].keys())
+
+        require_keys = ['pos', 'cell', 'pbc', 'atomic_numbers', 'forces', 'total_energy']
+        assert all([key in data_list[0].keys() for key in require_keys])
+
         t0 = time.time()
-        dataset = torch.load(dumped, weights_only=True)
-        print(dataset[0])
-        print(dataset[-1])
+        dataset = torch.load(dumped, weights_only=False)
         print("Time to load the dataset:", time.time() - t0)

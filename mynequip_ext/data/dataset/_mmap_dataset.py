@@ -3,15 +3,15 @@ import ase
 import ase.io
 import time
 
-from nequip.data import AtomicDataDict
-from nequip.data.dataset._base_datasets import AtomicDataset
+from nequip.data import from_dict, AtomicDataDict
+from . import AtomicDataset
 
 from typing import Union, Dict, List, Optional, Callable, Any
 
 # TODO: link "standard keys" under `include_keys` to docs
 
 
-class DumpedASEDataset(AtomicDataset):
+class MmapDataset(AtomicDataset):
     r"""``AtomicDataset`` for `ASE <https://wiki.fysik.dtu.dk/ase/ase/io/io.html>`_-readable file formats.
 
     Args:
@@ -28,7 +28,7 @@ class DumpedASEDataset(AtomicDataset):
         self.file_path = file_path
 
         t0 = time.time()
-        self.data_list: List[AtomicDataDict.Type] = torch.load(file_path, weights_only=True)
+        self.data_list: List[Dict] = torch.load(file_path, weights_only=False, mmap=True)
         print("Time to load the dataset:", time.time() - t0, "#", file_path)
 
     def __len__(self) -> int:
@@ -39,6 +39,6 @@ class DumpedASEDataset(AtomicDataset):
         indices: Union[List[int], torch.Tensor, slice],
     ) -> List[AtomicDataDict.Type]:
         if isinstance(indices, slice):
-            return self.data_list[indices]
+            return [from_dict(x) for x in self.data_list[indices]]
         else:
-            return [self.data_list[index] for index in indices]
+            return [from_dict(self.data_list[index]) for index in indices]

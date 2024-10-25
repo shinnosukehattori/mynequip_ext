@@ -1,5 +1,5 @@
-from ._dumped_ase_datamodule import DumpedASEDataModule
+from ._mmap_datamodule import MmapDataModule
 
 __all__ = [
-    DumpedASEDataModule,
+    MmapDataModule,
 ]
