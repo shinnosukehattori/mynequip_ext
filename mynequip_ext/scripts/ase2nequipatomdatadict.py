@@ -46,8 +46,8 @@ if __name__ == "__main__":
                 #["SPICE-1.1.3_valid.xyz", "valid.pt"],
                 #["SPICE-2.0.1_valid.xyz", "valid.pt"],
                 #["SPICE-2.0.1_train.xyz", "train.pt"],
-                #["SPICE-2.0.1_test.xyz", "test.pt"],
-                ["train_1.xyz", "dataset.pt"],
+                ["SPICE-2.0.1_test.xyz", "test.pt"],
+                #["train_1.xyz", "dataset.pt"],
             ]
 
     for (target, dumped) in targets:
@@ -85,5 +85,5 @@ if __name__ == "__main__":
         assert all([key in data_list[0].keys() for key in require_keys])
 
         t0 = time.time()
-        dataset = torch.load(dumped, weights_only=False)
+        dataset = torch.load(dumped, weights_only=False, mmap=True)
         print("Time to load the dataset:", time.time() - t0)
