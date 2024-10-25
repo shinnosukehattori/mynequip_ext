@@ -44,16 +44,15 @@ if __name__ == "__main__":
                 #["SPICE-1.1.3_train.xyz", "train.pt"],
                 #["SPICE-1.1.3_test.xyz", "test.pt"],
                 #["SPICE-1.1.3_valid.xyz", "valid.pt"],
-                ["SPICE-2.0.1_test.xyz", "test.pt"],
-                ["SPICE-2.0.1_train.xyz", "train.pt"],
                 ["SPICE-2.0.1_valid.xyz", "valid.pt"],
+                ["SPICE-2.0.1_train.xyz", "train.pt"],
+                ["SPICE-2.0.1_test.xyz", "test.pt"],
             ]
 
     if do_convert:
         for (target, dumped) in targets:
             # Load the atoms from the ASE trajectory
             atoms_list = ase.io.read(filename=target, index=":", parallel=False)
-            print(atoms_list)
             key_mapping = {}
             key_mapping = {
                 "energy_formation": "total_energy",
