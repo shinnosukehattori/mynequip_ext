@@ -1,5 +1,4 @@
-md_runs/
-simon_configs/
+tmp/
 .idea/
 .vscode/
 *__pycache__*
