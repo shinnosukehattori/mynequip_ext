@@ -2,7 +2,6 @@ run: [train, test]
 
 cutoff_radius: 5.2
 chemical_symbols: [H, Li, B, C, N, O, F, Na, Mg, Al, Si, P, S, Cl, K, Ca, Br, I] 
-#chemical_symbols: [H, He, Li, Be, B, C, N, O, F, Ne, Na, Mg, Al, Si, P, S, Cl, Ar, K, Ca, Sc, Ti, V, Cr, Mn, Fe, Co, Ni, Cu, Zn, Ga, Ge, As, Se, Br, Kr, Rb, Sr, Y, Zr, Nb, Mo, Tc, Ru, Rh, Pd, Ag, Cd, In, Sn, Sb, Te, I, Xe, Cs, Ba, La, Hf, Ta, W, Re, Os, Ir, Pt, Au, Hg, Tl, Pb, Bi, Po, At, Rn, Fr, Ra, Ac] 
 model_type_names: ${chemical_symbols}
 
 data:
@@ -17,11 +16,11 @@ data:
       chemical_symbols: ${chemical_symbols}
   seed: 123
   train_dataloader_kwargs:
-    batch_size: 128
-    num_workers: 2
+    batch_size:  8
+    num_workers: 4
     shuffle: true
   val_dataloader_kwargs:
-    batch_size: 512
+    batch_size: 8
     num_workers: ${data.train_dataloader_kwargs.num_workers}
   test_dataloader_kwargs: ${data.val_dataloader_kwargs}
   stats_manager:
@@ -99,7 +98,7 @@ trainer:
 
       #- _target_: mynequip_ext.train.callbacks.GarbageCollector
       #interval: epoch
-      frequency: 1
+      #frequency: 1
 
     - _target_: nequip.train.callbacks.TestTimeXYZFileWriter
       out_file: ${hydra:runtime.output_dir}/test
@@ -154,6 +153,7 @@ training_module:
         metric:
           _target_: nequip.train.RootMeanSquaredError
       - name: F_RMSE
+        field: forces
         per_type: true
         ignore_nan: true
         coeff: 1
@@ -218,9 +218,9 @@ training_module:
     r_max: ${cutoff_radius}
  
     # radial basis
-    BesselBasis_trainable: true
-    PolynomialCutoff_p: 8   
-    num_bessels_per_basis: 8
+    num_bessels: 8
+    bessel_trainable: true
+    polynomial_cutoff_p: 6
  
     # symmetry
     l_max: 2
@@ -228,15 +228,16 @@ training_module:
     
     # Allegro layers:
     num_layers: 2
-    num_tensor_features: 64
+    num_tensor_features: 16
+    latent_resnet: true
     
     two_body_latent_kwargs:
-      mlp_latent_dimensions: [64, 128, 256]
+      mlp_latent_dimensions: [16, 32, 64]
       mlp_nonlinearity: silu
       mlp_initialization: uniform
     
     latent_kwargs:
-      mlp_latent_dimensions: [256, 256, 256]
+      mlp_latent_dimensions: [64, 64]
       mlp_nonlinearity: silu
       mlp_initialization: uniform
     
@@ -249,7 +250,7 @@ training_module:
     
     # Final MLP to go from Allegro latent space to edge energies:
     edge_eng_kwargs:
-      mlp_latent_dimensions: [256]
+      mlp_latent_dimensions: [64]
       mlp_nonlinearity: null
       mlp_initialization: uniform
     

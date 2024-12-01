@@ -54,7 +54,7 @@ def from_ase_to_dict(
         ]  # arguments for from_dict method
     )
     include_keys = list(
-        set(include_keys + ase_all_properties + list(key_mapping.keys()))
+        set(list(include_keys) + ase_all_properties + list(key_mapping.keys()))
         - default_args
         - set(exclude_keys)
     )
