@@ -35,6 +35,7 @@ map_5GB  =  5368709120
 map_10GB = 10737418240
 map_2GB  =  2147483648
 map_1GB  =  1073741824
+map_small = int(1073741824/128)
 
 def process_atoms(args):
     atoms, key_mapping, include_keys, exclude_keys = args
@@ -63,9 +64,10 @@ def parallel_read_and_process(atoms_list, key_mapping, include_keys, exclude_key
 
 if __name__ == "__main__":
     targets = [
-                ["SPICE-2.0.1_test.xyz",  "SPICE-2.0.1_test.lmdb",  map_2GB],
-                ["SPICE-2.0.1_train.xyz", "SPICE-2.0.1_train.lmdb", map_10GB],
-                ["SPICE-2.0.1_valid.xyz", "SPICE-2.0.1_valid.lmdb", map_2GB],
+                #["SPICE-2.0.1_test.xyz",  "SPICE-2.0.1_test.lmdb",  map_2GB],
+                #["SPICE-2.0.1_train.xyz", "SPICE-2.0.1_train.lmdb", map_10GB],
+                #["SPICE-2.0.1_valid.xyz", "SPICE-2.0.1_valid.lmdb", map_2GB],
+                ["small.xyz", "small.lmdb", map_small],
             ]
 
     for (target, dumped, map_size) in targets:
