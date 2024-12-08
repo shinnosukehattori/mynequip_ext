@@ -7,7 +7,7 @@ model_type_names: ${chemical_symbols}
 data:
   _target_: mynequip_ext.data.datamodule.LMDBDataModule
   train_file_path: train.lmdb
- val_file_path: valid.lmdb
+  val_file_path: valid.lmdb
   test_file_path: test.lmdb
   transforms:
     - _target_: nequip.data.transforms.NeighborListTransform
@@ -16,11 +16,11 @@ data:
       chemical_symbols: ${chemical_symbols}
   seed: 123
   train_dataloader_kwargs:
-    batch_size:  8
+    batch_size:  512
     num_workers: 4
     shuffle: true
   val_dataloader_kwargs:
-    batch_size: 8
+    batch_size: 512
     num_workers: ${data.train_dataloader_kwargs.num_workers}
   test_dataloader_kwargs: ${data.val_dataloader_kwargs}
   stats_manager:
@@ -63,7 +63,7 @@ trainer:
 
   logger:
     _target_: lightning.pytorch.loggers.wandb.WandbLogger
-    project: allegro_spice
+    project: allegro_spice_develop2
     name: spice201_lmdb
     save_dir: ${hydra:runtime.output_dir}
 
@@ -109,31 +109,35 @@ trainer:
 training_module:
   _target_: nequip.train.NequIPLightningModule
   loss:
-    _target_: nequip.train.MetricsManager
+    _target_: mynequip_ext.train.MetricsManager
     metrics:
-      - name: peratomE_HL
+      #- name: peratomE_HL
+      - name: peratomE_MSE
         field:
           _target_: nequip.data.PerAtomModifier
           field: total_energy
         coeff: 0.1
         metric:
-          _target_: nequip.train.HuberLoss
-          delta: 0.01
-      - name: force_HL
+          _target_: nequip.train.MeanSquaredError
+          #_target_: nequip.train.HuberLoss
+          #delta: 0.01
+      #- name: force_HL
+      - name: force_MSE
         field: forces
         per_type: true
         ignore_nan: true
         coeff: 0.9
         metric:
-          _target_: nequip.train.HuberLoss
-          delta: 0.01
+          _target_: nequip.train.MeanSquaredError
+          #_target_: nequip.train.HuberLoss
+          #delta: 0.01
           #- name: stress_MSE
           #field: stress
           #coeff: 0.1
           #metric:
           #_target_: nequip.train.MeanSquaredError
   train_metrics:
-    _target_: nequip.train.MetricsManager
+    _target_: mynequip_ext.train.MetricsManager
     metrics:
       - name: tE_RMSE
         field: total_energy
@@ -165,7 +169,7 @@ training_module:
           #metric:
           #    _target_: nequip.train.RootMeanSquaredError
   val_metrics: 
-    _target_: nequip.train.MetricsManager
+    _target_: mynequip_ext.train.MetricsManager
     metrics:
       - name: peratomE_RMSE
         field:
